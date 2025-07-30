@@ -26,16 +26,29 @@ class Database:
     async def create_tables(self):
         """Create necessary tables if they don't exist"""
         async with self.pool.acquire() as connection:
+            # Create users table for authentication
+            await connection.execute('''
+                CREATE TABLE IF NOT EXISTS users (
+                    id VARCHAR PRIMARY KEY,
+                    email VARCHAR UNIQUE NOT NULL,
+                    password_hash VARCHAR NOT NULL,
+                    is_active BOOLEAN DEFAULT TRUE,
+                    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+                )
+            ''')
+
             # Create user_profiles table
             await connection.execute('''
                 CREATE TABLE IF NOT EXISTS user_profiles (
                     id VARCHAR PRIMARY KEY,
+                    user_id VARCHAR NOT NULL,
                     name VARCHAR NOT NULL,
                     background TEXT,
                     experience JSONB,
                     interests JSONB,
                     skills JSONB,
-                    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+                    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
                 )
             ''')
 
@@ -52,19 +65,68 @@ class Database:
                     priority VARCHAR DEFAULT 'medium',
                     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
                     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-                    FOREIGN KEY (user_id) REFERENCES user_profiles(id)
+                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
                 )
             ''')
+
+    # User Authentication Operations
+    async def create_user(self, user_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Create a new user"""
+        async with self.pool.acquire() as connection:
+            await connection.execute('''
+                INSERT INTO users (id, email, password_hash, is_active, created_at)
+                VALUES ($1, $2, $3, $4, $5)
+            ''', 
+                user_data['id'],
+                user_data['email'],
+                user_data['password_hash'],
+                user_data.get('is_active', True),
+                user_data['created_at']
+            )
+            return user_data
+
+    async def get_user_by_email(self, email: str) -> Optional[Dict[str, Any]]:
+        """Get user by email"""
+        async with self.pool.acquire() as connection:
+            row = await connection.fetchrow(
+                'SELECT * FROM users WHERE email = $1', email
+            )
+            if row:
+                return {
+                    'id': row['id'],
+                    'email': row['email'],
+                    'password_hash': row['password_hash'],
+                    'is_active': row['is_active'],
+                    'created_at': row['created_at']
+                }
+            return None
+
+    async def get_user_by_id(self, user_id: str) -> Optional[Dict[str, Any]]:
+        """Get user by ID"""
+        async with self.pool.acquire() as connection:
+            row = await connection.fetchrow(
+                'SELECT * FROM users WHERE id = $1', user_id
+            )
+            if row:
+                return {
+                    'id': row['id'],
+                    'email': row['email'],
+                    'password_hash': row['password_hash'],
+                    'is_active': row['is_active'],
+                    'created_at': row['created_at']
+                }
+            return None
 
     # User Profile Operations
     async def create_profile(self, profile_data: Dict[str, Any]) -> Dict[str, Any]:
         """Create a new user profile"""
         async with self.pool.acquire() as connection:
             await connection.execute('''
-                INSERT INTO user_profiles (id, name, background, experience, interests, skills, created_at)
-                VALUES ($1, $2, $3, $4, $5, $6, $7)
+                INSERT INTO user_profiles (id, user_id, name, background, experience, interests, skills, created_at)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
             ''', 
                 profile_data['id'],
+                profile_data['user_id'],
                 profile_data['name'],
                 profile_data['background'],
                 json.dumps(profile_data['experience']),
@@ -75,14 +137,34 @@ class Database:
             return profile_data
 
     async def get_profile(self, user_id: str) -> Optional[Dict[str, Any]]:
-        """Get user profile by ID"""
+        """Get user profile by user ID"""
         async with self.pool.acquire() as connection:
             row = await connection.fetchrow(
-                'SELECT * FROM user_profiles WHERE id = $1', user_id
+                'SELECT * FROM user_profiles WHERE user_id = $1', user_id
             )
             if row:
                 return {
                     'id': row['id'],
+                    'user_id': row['user_id'],
+                    'name': row['name'],
+                    'background': row['background'],
+                    'experience': json.loads(row['experience']) if row['experience'] else [],
+                    'interests': json.loads(row['interests']) if row['interests'] else [],
+                    'skills': json.loads(row['skills']) if row['skills'] else [],
+                    'created_at': row['created_at']
+                }
+            return None
+
+    async def get_profile_by_id(self, profile_id: str) -> Optional[Dict[str, Any]]:
+        """Get user profile by profile ID"""
+        async with self.pool.acquire() as connection:
+            row = await connection.fetchrow(
+                'SELECT * FROM user_profiles WHERE id = $1', profile_id
+            )
+            if row:
+                return {
+                    'id': row['id'],
+                    'user_id': row['user_id'],
                     'name': row['name'],
                     'background': row['background'],
                     'experience': json.loads(row['experience']) if row['experience'] else [],
