@@ -115,6 +115,9 @@ Generate exactly {count} ideas."""
 
         response = await chat.send_message(user_message)
         
+        # Debug: Print the raw response
+        print(f"DEBUG - Raw AI response: {response}")
+        
         # Parse the response to extract individual ideas
         ideas = []
         lines = response.split('\n')
@@ -136,6 +139,7 @@ Generate exactly {count} ideas."""
         if current_idea and 'title' in current_idea and 'description' in current_idea:
             ideas.append(current_idea)
         
+        print(f"DEBUG - Parsed ideas: {ideas}")
         return ideas[:count]
         
     except Exception as e:
