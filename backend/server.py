@@ -115,9 +115,6 @@ Generate exactly {count} ideas."""
 
         response = await chat.send_message(user_message)
         
-        # Debug: Print the raw response
-        print(f"DEBUG - Raw AI response: {response}")
-        
         # Parse the response to extract individual ideas
         ideas = []
         lines = response.split('\n')
@@ -130,14 +127,15 @@ Generate exactly {count} ideas."""
                     ideas.append(current_idea)
                 current_idea = {'title': line[6:].strip(), 'description': ''}
             elif line.startswith('DESCRIPTION:'):
-                current_idea['description'] = line[12:].strip()
-            elif line and 'title' in current_idea and not line.startswith('TITLE:'):
+                if 'title' in current_idea:
+                    current_idea['description'] = line[12:].strip()
+            elif line and 'title' in current_idea and 'description' in current_idea and not line.startswith('TITLE:') and not line.startswith('**IDEA'):
+                # Continue description but avoid bleeding into next idea
                 current_idea['description'] += ' ' + line
         
-        if current_idea:
+        if current_idea and 'title' in current_idea and 'description' in current_idea:
             ideas.append(current_idea)
         
-        print(f"DEBUG - Parsed ideas: {ideas}")
         return ideas[:count]
         
     except Exception as e:
