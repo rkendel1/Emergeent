@@ -8,6 +8,7 @@ from typing import Dict, List, Optional, Any
 
 class MockDatabase:
     def __init__(self):
+        self.users = {}
         self.user_profiles = {}
         self.ideas = {}
 
@@ -23,6 +24,23 @@ class MockDatabase:
         """Mock table creation"""
         print("Mock tables created")
 
+    # User Authentication Operations
+    async def create_user(self, user_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Create a new user"""
+        self.users[user_data['id']] = user_data
+        return user_data
+
+    async def get_user_by_email(self, email: str) -> Optional[Dict[str, Any]]:
+        """Get user by email"""
+        for user in self.users.values():
+            if user['email'] == email:
+                return user
+        return None
+
+    async def get_user_by_id(self, user_id: str) -> Optional[Dict[str, Any]]:
+        """Get user by ID"""
+        return self.users.get(user_id)
+
     # User Profile Operations
     async def create_profile(self, profile_data: Dict[str, Any]) -> Dict[str, Any]:
         """Create a new user profile"""
@@ -30,8 +48,15 @@ class MockDatabase:
         return profile_data
 
     async def get_profile(self, user_id: str) -> Optional[Dict[str, Any]]:
-        """Get user profile by ID"""
-        return self.user_profiles.get(user_id)
+        """Get user profile by user ID"""
+        for profile in self.user_profiles.values():
+            if profile.get('user_id') == user_id:
+                return profile
+        return None
+
+    async def get_profile_by_id(self, profile_id: str) -> Optional[Dict[str, Any]]:
+        """Get user profile by profile ID"""
+        return self.user_profiles.get(profile_id)
 
     async def get_all_profiles(self) -> List[Dict[str, Any]]:
         """Get all user profiles"""

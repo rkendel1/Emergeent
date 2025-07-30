@@ -17,8 +17,15 @@ from jose import JWTError, jwt
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
-# Database connection
-db = Database()
+# Database connection - fallback to mock if PostgreSQL not available
+POSTGRES_URL = os.environ.get('POSTGRES_URL')
+if POSTGRES_URL:
+    from database import Database
+    db = Database()
+else:
+    from mock_database import MockDatabase
+    db = MockDatabase()
+    print("Using mock database for development")
 
 # Create the main app without a prefix
 app = FastAPI()
