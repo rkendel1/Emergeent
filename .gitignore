@@ -77,4 +77,16 @@ agenthub/agents/youtube/db
 .cache/
 
 # Mobile development
-android-sdk/ 
+android-sdk/
+
+# Docker
+docker-compose.override.yml
+.docker/
+
+# PostgreSQL
+*.sql.bak
+pgdata/
+
+# Development and testing
+test_result.md
+*.test.py.bak

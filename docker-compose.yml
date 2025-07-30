@@ -1,0 +1,61 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: test_database
+      POSTGRES_USER: username
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U username -d test_database"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - emergeent-network
+
+  # Note: Backend service temporarily commented out due to network/SSL issues
+  # Will work once packages can be installed properly
+  # backend:
+  #   build: ./backend
+  #   environment:
+  #     POSTGRES_URL: "postgresql://username:password@postgres:5432/test_database"
+  #     GROQ_API_KEY: "${GROQ_API_KEY:-gsk_YOUR_GROQ_API_KEY_HERE}"
+  #   ports:
+  #     - "8000:8000"
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #   volumes:
+  #     - ./backend:/app
+  #   restart: unless-stopped
+  #   networks:
+  #     - emergeent-network
+
+  # frontend:
+  #   build: ./frontend
+  #   environment:
+  #     REACT_APP_BACKEND_URL: "http://backend:8000"
+  #     WDS_SOCKET_PORT: "443"
+  #   ports:
+  #     - "3000:3000"
+  #   depends_on:
+  #     - backend
+  #   volumes:
+  #     - ./frontend:/app
+  #     - /app/node_modules
+  #   restart: unless-stopped
+  #   networks:
+  #     - emergeent-network
+
+volumes:
+  postgres_data:
+
+networks:
+  emergeent-network:
+    driver: bridge

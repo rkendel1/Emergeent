@@ -8,14 +8,14 @@ from pydantic import BaseModel, Field
 from typing import List, Optional
 import uuid
 from datetime import datetime
-from database import Database
-from groq_client import GroqClient
+from mock_database import MockDatabase
+from mock_groq_client import MockGroqClient
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
 # Database connection
-db = Database()
+db = MockDatabase()
 
 # Create the main app without a prefix
 app = FastAPI()
@@ -24,8 +24,8 @@ app = FastAPI()
 api_router = APIRouter(prefix="/api")
 
 # AI Configuration
-GROQ_API_KEY = os.environ.get('GROQ_API_KEY')
-groq_client = GroqClient(GROQ_API_KEY) if GROQ_API_KEY else None
+GROQ_API_KEY = os.environ.get('GROQ_API_KEY', 'mock_key')
+groq_client = MockGroqClient(GROQ_API_KEY)
 
 # Models
 class UserProfile(BaseModel):
@@ -83,9 +83,6 @@ class AIFeedbackRequest(BaseModel):
 async def generate_ideas_with_ai(user_profile: UserProfile, count: int = 5) -> List[str]:
     """Generate ideas using GROQ based on user profile"""
     try:
-        if not groq_client:
-            raise ValueError("GROQ API key not configured")
-
         system_message = f"""You are an expert idea generator and innovation consultant. Generate innovative, actionable business/project ideas based on the user's profile.
 
 User Profile:
@@ -147,9 +144,6 @@ Generate exactly {count} ideas."""
 async def get_ai_feedback(idea: Idea, stage: str) -> str:
     """Get AI feedback for idea based on current stage"""
     try:
-        if not groq_client:
-            raise ValueError("GROQ API key not configured")
-
         stage_prompts = {
             "suggested": "Provide initial feedback on this idea's potential. Focus on market opportunity, feasibility, and initial next steps.",
             "deep_dive": "Analyze this idea deeply. Discuss target market, competitive landscape, technical requirements, and business model options.",
