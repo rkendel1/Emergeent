@@ -12,8 +12,11 @@ import {
   WrenchIcon,
   UserIcon,
   HomeIcon,
-  XMarkIcon
+  XMarkIcon,
+  ArrowRightOnRectangleIcon
 } from "@heroicons/react/24/outline";
+import { AuthProvider, useAuth } from "./contexts/AuthContext";
+import ProtectedRoute from "./components/ProtectedRoute";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -29,7 +32,8 @@ const STAGES = [
 
 // Home Component
 const Home = () => {
-  const [currentUser, setCurrentUser] = useState(null);
+  const { user, logout } = useAuth();
+  const [currentUserProfile, setCurrentUserProfile] = useState(null);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [ideas, setIdeas] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -45,24 +49,26 @@ const Home = () => {
   });
 
   useEffect(() => {
-    loadUserProfile();
-  }, []);
+    if (user) {
+      loadUserProfile();
+      loadUserIdeas();
+    }
+  }, [user]);
 
   const loadUserProfile = async () => {
     try {
-      const response = await axios.get(`${API}/profiles`);
-      if (response.data.length > 0) {
-        setCurrentUser(response.data[0]);
-        loadUserIdeas(response.data[0].id);
-      }
+      const response = await axios.get(`${API}/profiles/me`);
+      setCurrentUserProfile(response.data);
     } catch (error) {
-      console.error("Error loading profile:", error);
+      if (error.response?.status !== 404) {
+        console.error("Error loading profile:", error);
+      }
     }
   };
 
-  const loadUserIdeas = async (userId) => {
+  const loadUserIdeas = async () => {
     try {
-      const response = await axios.get(`${API}/ideas/user/${userId}`);
+      const response = await axios.get(`${API}/ideas`);
       setIdeas(response.data);
     } catch (error) {
       console.error("Error loading ideas:", error);
@@ -80,7 +86,7 @@ const Home = () => {
       };
 
       const response = await axios.post(`${API}/profiles`, profileData);
-      setCurrentUser(response.data);
+      setCurrentUserProfile(response.data);
       setShowProfileModal(false);
       setProfileForm({ name: "", background: "", experience: "", interests: "", skills: "" });
     } catch (error) {
@@ -89,18 +95,25 @@ const Home = () => {
   };
 
   const generateAIIdeas = async () => {
-    if (!currentUser) return;
+    if (!currentUserProfile) {
+      alert("Please create a profile first to generate AI ideas.");
+      setShowProfileModal(true);
+      return;
+    }
     
     setLoading(true);
     try {
       const response = await axios.post(`${API}/ideas/generate`, {
-        user_id: currentUser.id,
         count: 5
       });
       
-      await loadUserIdeas(currentUser.id);
+      await loadUserIdeas();
     } catch (error) {
       console.error("Error generating ideas:", error);
+      if (error.response?.status === 404) {
+        alert("Please create a profile first to generate AI ideas.");
+        setShowProfileModal(true);
+      }
     } finally {
       setLoading(false);
     }
@@ -115,7 +128,7 @@ const Home = () => {
       });
       
       setFeedback(response.data.feedback);
-      await loadUserIdeas(currentUser.id);
+      await loadUserIdeas();
     } catch (error) {
       console.error("Error getting feedback:", error);
     } finally {
@@ -134,7 +147,7 @@ const Home = () => {
         stage: newStage
       });
       
-      await loadUserIdeas(currentUser.id);
+      await loadUserIdeas();
     } catch (error) {
       console.error("Error updating idea stage:", error);
     }
@@ -150,24 +163,58 @@ const Home = () => {
     return <IconComponent className="h-5 w-5" />;
   };
 
-  if (!currentUser) {
+  if (!currentUserProfile) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-50 to-indigo-100 flex items-center justify-center">
-        <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full mx-4">
-          <div className="text-center mb-6">
-            <div className="mx-auto w-16 h-16 bg-gradient-to-r from-purple-500 to-indigo-600 rounded-full flex items-center justify-center mb-4">
-              <SparklesIcon className="h-8 w-8 text-white" />
+      <div className="min-h-screen bg-gradient-to-br from-purple-50 to-indigo-100">
+        {/* Header */}
+        <div className="bg-white shadow-sm border-b border-purple-100">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex justify-between items-center h-16">
+              <div className="flex items-center space-x-4">
+                <div className="w-10 h-10 bg-gradient-to-r from-purple-500 to-indigo-600 rounded-full flex items-center justify-center">
+                  <SparklesIcon className="h-6 w-6 text-white" />
+                </div>
+                <div>
+                  <h1 className="text-xl font-bold text-gray-900">ID8</h1>
+                  <p className="text-sm text-gray-600">GitHub for Ideas</p>
+                </div>
+              </div>
+              
+              <div className="flex items-center space-x-4">
+                <div className="flex items-center space-x-2">
+                  <UserIcon className="h-5 w-5 text-gray-400" />
+                  <span className="text-sm font-medium text-gray-700">{user?.email}</span>
+                </div>
+                
+                <button
+                  onClick={logout}
+                  className="text-gray-500 hover:text-gray-700 flex items-center space-x-1"
+                >
+                  <ArrowRightOnRectangleIcon className="h-5 w-5" />
+                  <span className="text-sm">Logout</span>
+                </button>
+              </div>
             </div>
-            <h1 className="text-2xl font-bold text-gray-900 mb-2">Welcome to ID8</h1>
-            <p className="text-gray-600">GitHub for Ideas - Transform your sparks into funded products</p>
           </div>
-          
-          <button
-            onClick={() => setShowProfileModal(true)}
-            className="w-full bg-gradient-to-r from-purple-500 to-indigo-600 text-white py-3 px-6 rounded-xl font-semibold hover:from-purple-600 hover:to-indigo-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
-          >
-            Create Your Profile
-          </button>
+        </div>
+
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full mx-4">
+            <div className="text-center mb-6">
+              <div className="mx-auto w-16 h-16 bg-gradient-to-r from-purple-500 to-indigo-600 rounded-full flex items-center justify-center mb-4">
+                <SparklesIcon className="h-8 w-8 text-white" />
+              </div>
+              <h1 className="text-2xl font-bold text-gray-900 mb-2">Complete Your Profile</h1>
+              <p className="text-gray-600">Tell us about yourself to get personalized AI-generated ideas</p>
+            </div>
+            
+            <button
+              onClick={() => setShowProfileModal(true)}
+              className="w-full bg-gradient-to-r from-purple-500 to-indigo-600 text-white py-3 px-6 rounded-xl font-semibold hover:from-purple-600 hover:to-indigo-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+            >
+              Create Your Profile
+            </button>
+          </div>
         </div>
 
         {/* Profile Modal */}
@@ -283,7 +330,7 @@ const Home = () => {
             <div className="flex items-center space-x-4">
               <div className="flex items-center space-x-2">
                 <UserIcon className="h-5 w-5 text-gray-400" />
-                <span className="text-sm font-medium text-gray-700">{currentUser.name}</span>
+                <span className="text-sm font-medium text-gray-700">{currentUserProfile?.name || user?.email}</span>
               </div>
               
               <button
@@ -293,6 +340,14 @@ const Home = () => {
               >
                 <SparklesIcon className="h-4 w-4" />
                 <span>{loading ? 'Generating...' : 'Generate Ideas'}</span>
+              </button>
+
+              <button
+                onClick={logout}
+                className="text-gray-500 hover:text-gray-700 flex items-center space-x-1"
+              >
+                <ArrowRightOnRectangleIcon className="h-5 w-5" />
+                <span className="text-sm">Logout</span>
               </button>
             </div>
           </div>
@@ -483,13 +538,19 @@ const Home = () => {
 
 function App() {
   return (
-    <div className="App">
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Home />} />
-        </Routes>
-      </BrowserRouter>
-    </div>
+    <AuthProvider>
+      <div className="App">
+        <BrowserRouter>
+          <Routes>
+            <Route path="/" element={
+              <ProtectedRoute>
+                <Home />
+              </ProtectedRoute>
+            } />
+          </Routes>
+        </BrowserRouter>
+      </div>
+    </AuthProvider>
   );
 }
 
